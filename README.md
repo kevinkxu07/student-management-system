@@ -142,18 +142,11 @@ Implemented:
 - Passwords stored as salted hashes, never plaintext
 - All data endpoints protected by a `@login_required` decorator
 - Sessions expire after 30 minutes of inactivity
-<<<<<<< HEAD
 - Database credentials and secret key read from environment variables
-=======
->>>>>>> ba953f54ed84feb1bae68f702c6bd8419683e160
 - Input validation on both frontend and backend
 
 ## Known Limitations
 
-<<<<<<< HEAD
-=======
-- Database credentials and `secret_key` are hardcoded; production deployment should use environment variables
->>>>>>> ba953f54ed84feb1bae68f702c6bd8419683e160
 - No HTTPS — login credentials are transmitted in plaintext, suitable only for local development
 - Single administrator role, no permission tiers
 - The `student` table still stores class and major as text rather than foreign keys
@@ -163,8 +156,4 @@ Implemented:
 
 ## Context
 
-<<<<<<< HEAD
 Built over approximately two weeks with no prior web development experience. Development was AI-assisted; the accompanying project report documents where AI-generated code required correction — including missing CDN dependencies, duplicate route definitions, and SQL that was syntactically correct but failed against real data.
-=======
-Built over approximately two weeks with no prior web development experience. Development was AI-assisted; the accompanying project report documents where AI-generated code required correction — including missing CDN dependencies, duplicate route definitions, and SQL that was syntactically correct but failed against real data.
->>>>>>> ba953f54ed84feb1bae68f702c6bd8419683e160
