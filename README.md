@@ -109,4 +109,39 @@ Six tables:
 | `major` | Academic programs |
 | `class` | Classes, foreign key to `major` |
 | `student` | Student records |
-| `course`
+| `course` | Courses |
+| `score` | Grades, foreign keys to `student` and `course` |
+
+**Relationships:** one major has many classes; students and courses form a many-to-many relationship resolved through the `score` junction table.
+
+## Design Notes
+
+**Normalization.** Majors and classes were initially stored as free-text fields on the student table. This caused a data integrity problem: `SELECT DISTINCT` returned two entries for the same major because one record contained a full-width space (U+3000) from Chinese IME input — invisible on screen, and not removable by `TRIM()`, which only handles ASCII whitespace. The fix was to extract these into their own tables and change the student form to dropdown selection, eliminating the class of problem at the input layer rather than cleaning it up afterward.
+
+**Validation at two layers.** All input is validated in both the frontend and the backend. Frontend validation is for user experience; backend validation is for correctness, since the frontend can be bypassed entirely by constructing requests directly.
+
+**Error handling around database constraints.** Constraints like `UNIQUE` on student numbers correctly reject bad data, but an uncaught `IntegrityError` produces a hung modal with no feedback. Every constraint has a corresponding error path that returns a readable message.
+
+## Security
+
+Implemented:
+
+- All SQL queries use parameterized statements
+- Passwords stored as salted hashes, never plaintext
+- All data endpoints protected by a `@login_required` decorator
+- Sessions expire after 30 minutes of inactivity
+- Input validation on both frontend and backend
+
+## Known Limitations
+
+- Database credentials and `secret_key` are hardcoded; production deployment should use environment variables
+- No HTTPS — login credentials are transmitted in plaintext, suitable only for local development
+- Single administrator role, no permission tiers
+- The `student` table still stores class and major as text rather than foreign keys
+- Search is performed client-side; large datasets would require server-side queries with pagination
+- The `/api/init-admin` endpoint should be removed after initialization
+- The default password is weak and intended only for local testing
+
+## Context
+
+Built over approximately two weeks with no prior web development experience. Development was AI-assisted; the accompanying project report documents where AI-generated code required correction — including missing CDN dependencies, duplicate route definitions, and SQL that was syntactically correct but failed against real data.
