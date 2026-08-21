@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>学生列表</title>
+</head>
+<body>
+    <h1>学生列表</h1>
+    <table border="1">
+        <tr>
+            <th>学号</th>
+            <th>姓名</th>
+            <th>性别</th>
+            <th>班级</th>
+            <th>专业</th>
+            <th>操作</th>
+        </tr>
+        {% for s in students %}
+        <tr id="student-row-{{ s[0] }}">
+            <td>{{ s[1] }}</td>
+            <td>{{ s[2] }}</td>
+            <td>{{ s[3] }}</td>
+            <td>{{ s[4] }}</td>
+            <td>{{ s[5] }}</td>
+            <td><button onclick="deleteStudent({{ s[0] }})">删除</button></td>
+        </tr>
+        {% endfor %}
+    </table>
+
+    <script>
+        function deleteStudent(id) {
+            if (!confirm('确定要删除这名学生吗？')) return;
+
+            fetch('/api/students/' + id, { method: 'DELETE' })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        document.getElementById('student-row-' + id).remove();
+                    } else {
+                        alert('删除失败');
+                    }
+                })
+                .catch(() => alert('删除失败，请检查服务器连接'));
+        }
+    </script>
+</body>
+</html>

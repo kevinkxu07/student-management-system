@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>学生信息管理系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/dayjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/plugin/customParseFormat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/plugin/weekday.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/plugin/localeData.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/plugin/weekOfYear.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/plugin/weekYear.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/plugin/advancedFormat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/plugin/quarterOfYear.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ant-design-vue@4.1.2/dist/reset.css">
+    <script src="https://cdn.jsdelivr.net/npm/ant-design-vue@4.1.2/dist/antd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body style="margin: 0;">
+    {% raw %}
+    <div id="app">
+
+        <div v-if="!loggedIn" style="display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f0f2f5;">
+            <a-card title="学生信息管理系统" style="width: 380px;">
+                <a-form layout="vertical">
+                    <a-form-item label="用户名">
+                        <a-input v-model:value="loginForm.username" :maxlength="50" @keyup.enter="doLogin"></a-input>
+                    </a-form-item>
+                    <a-form-item label="密码">
+                        <a-input-password v-model:value="loginForm.password" @keyup.enter="doLogin"></a-input-password>
+                    </a-form-item>
+                    <a-button type="primary" block @click="doLogin">登录</a-button>
+                </a-form>
+            </a-card>
+        </div>
+
+        <a-layout v-if="loggedIn" style="min-height: 100vh;">
+
+            <a-layout-sider v-model:collapsed="collapsed" collapsible>
+                <div style="height: 48px; margin: 16px; color: white; font-size: 16px; line-height: 48px; text-align: center; overflow: hidden; white-space: nowrap;">
+                    {{ collapsed ? '📚' : '学生管理系统' }}
+                </div>
+                <a-menu theme="dark" mode="inline" :selectedKeys="[currentPage]" @click="handleMenuClick">
+                    <a-menu-item key="students">
+                        <template #icon><span>👤</span></template>
+                        <span>学生列表</span>
+                    </a-menu-item>
+                    <a-menu-item key="majors">
+                        <template #icon><span>🎓</span></template>
+                        <span>专业管理</span>
+                    </a-menu-item>
+                    <a-menu-item key="classes">
+                        <template #icon><span>🏫</span></template>
+                        <span>班级管理</span>
+                    </a-menu-item>
+                    <a-menu-item key="courses">
+                        <template #icon><span>📖</span></template>
+                        <span>课程管理</span>
+                    </a-menu-item>
+                    <a-menu-item key="scores">
+                        <template #icon><span>📊</span></template>
+                        <span>成绩管理</span>
+                    </a-menu-item>
+                    <a-menu-item key="statistics">
+                        <template #icon><span>📈</span></template>
+                        <span>统计分析</span>
+                    </a-menu-item>
+                </a-menu>
+            </a-layout-sider>
+
+            <a-layout>
+                <a-layout-header style="background: #fff; padding: 0 24px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-size: 18px;">{{ pageTitle }}</span>
+                    <span>
+                        <span style="margin-right: 16px; color: #888;">{{ username }}</span>
+                        <a-button size="small" @click="doLogout">退出登录</a-button>
+                    </span>
+                </a-layout-header>
+
+                <a-layout-content style="margin: 24px; padding: 24px; background: #fff;">
+
+                    <div v-if="currentPage === 'students'">
+                        <div style="margin-bottom: 16px;">
+                            <a-button type="primary" @click="openAddModal">添加学生</a-button>
+                            <a-input-search v-model:value="searchStudent" placeholder="搜索学号、姓名、班级、专业" style="width: 300px; margin-left: 16px;" allow-clear></a-input-search>
+                            <span style="margin-left: 16px; color: #888;">共 {{ filteredStudents.length }} 名学生</span>
+                        </div>
+                        <a-table :data-source="filteredStudents" :columns="columns" row-key="id"></a-table>
+                        <a-modal v-model:open="modalOpen" :title="modalTitle" @ok="submitForm" ok-text="保存" cancel-text="取消">
+                            <a-form :model="form" layout="vertical">
+                                <a-form-item label="学号">
+                                    <a-input v-model:value="form.student_no" :maxlength="20" placeholder="请输入数字学号"></a-input>
+                                </a-form-item>
+                                <a-form-item label="姓名">
+                                    <a-input v-model:value="form.name" :maxlength="50" show-count></a-input>
+                                </a-form-item>
+                                <a-form-item label="性别">
+                                    <a-select v-model:value="form.gender">
+                                        <a-select-option value="男">男</a-select-option>
+                                        <a-select-option value="女">女</a-select-option>
+                                    </a-select>
+                                </a-form-item>
+                                <a-form-item label="班级">
+                                    <a-select v-model:value="form.class_name">
+                                        <a-select-option v-for="c in classes" :key="c.id" :value="c.class_name">{{ c.class_name }}</a-select-option>
+                                    </a-select>
+                                </a-form-item>
+                                <a-form-item label="专业">
+                                    <a-select v-model:value="form.major">
+                                        <a-select-option v-for="m in majors" :key="m.id" :value="m.major_name">{{ m.major_name }}</a-select-option>
+                                    </a-select>
+                                </a-form-item>
+                                <a-form-item label="入学年份">
+                                    <a-select v-model:value="form.enroll_year">
+                                        <a-select-option v-for="y in yearOptions" :key="y" :value="y">{{ y }}</a-select-option>
+                                    </a-select>
+                                </a-form-item>
+                            </a-form>
+                        </a-modal>
+                    </div>
+
+                    <div v-if="currentPage === 'majors'">
+                        <div style="margin-bottom: 16px;">
+                            <a-button type="primary" @click="openAddMajor">添加专业</a-button>
+                            <a-input-search v-model:value="searchMajor" placeholder="搜索专业、院系" style="width: 260px; margin-left: 16px;" allow-clear></a-input-search>
+                            <span style="margin-left: 16px; color: #888;">共 {{ filteredMajors.length }} 个专业</span>
+                        </div>
+                        <a-table :data-source="filteredMajors" :columns="majorColumns" row-key="id"></a-table>
+                        <a-modal v-model:open="majorModalOpen" :title="majorModalTitle" @ok="submitMajor" ok-text="保存" cancel-text="取消">
+                            <a-form :model="majorForm" layout="vertical">
+                                <a-form-item label="专业名称">
+                                    <a-input v-model:value="majorForm.major_name" :maxlength="100" show-count></a-input>
+                                </a-form-item>
+                                <a-form-item label="所属院系">
+                                    <a-input v-model:value="majorForm.department" :maxlength="100"></a-input>
+                                </a-form-item>
+                            </a-form>
+                        </a-modal>
+                    </div>
+
+                    <div v-if="currentPage === 'classes'">
+                        <div style="margin-bottom: 16px;">
+                            <a-button type="primary" @click="openAddClass">添加班级</a-button>
+                            <a-input-search v-model:value="searchClass" placeholder="搜索班级、专业" style="width: 260px; margin-left: 16px;" allow-clear></a-input-search>
+                            <span style="margin-left: 16px; color: #888;">共 {{ filteredClasses.length }} 个班级</span>
+                        </div>
+                        <a-table :data-source="filteredClasses" :columns="classColumns" row-key="id"></a-table>
+                        <a-modal v-model:open="classModalOpen" :title="classModalTitle" @ok="submitClass" ok-text="保存" cancel-text="取消">
+                            <a-form :model="classForm" layout="vertical">
+                                <a-form-item label="班级名称">
+                                    <a-input v-model:value="classForm.class_name" :maxlength="100" show-count></a-input>
+                                </a-form-item>
+                                <a-form-item label="所属专业">
+                                    <a-select v-model:value="classForm.major_id">
+                                        <a-select-option v-for="m in majors" :key="m.id" :value="m.id">{{ m.major_name }}</a-select-option>
+                                    </a-select>
+                                </a-form-item>
+                                <a-form-item label="年级">
+                                    <a-select v-model:value="classForm.grade">
+                                        <a-select-option v-for="y in yearOptions" :key="y" :value="String(y)">{{ y }}</a-select-option>
+                                    </a-select>
+                                </a-form-item>
+                            </a-form>
+                        </a-modal>
+                    </div>
+
+                    <div v-if="currentPage === 'courses'">
+                        <div style="margin-bottom: 16px;">
+                            <a-button type="primary" @click="openAddCourse">添加课程</a-button>
+                            <a-input-search v-model:value="searchCourse" placeholder="搜索课程名称" style="width: 260px; margin-left: 16px;" allow-clear></a-input-search>
+                            <span style="margin-left: 16px; color: #888;">共 {{ filteredCourses.length }} 门课程</span>
+                        </div>
+                        <a-table :data-source="filteredCourses" :columns="courseColumns" row-key="id"></a-table>
+                        <a-modal v-model:open="courseModalOpen" :title="courseModalTitle" @ok="submitCourse" ok-text="保存" cancel-text="取消">
+                            <a-form :model="courseForm" layout="vertical">
+                                <a-form-item label="课程名称">
+                                    <a-input v-model:value="courseForm.course_name" :maxlength="100" show-count></a-input>
+                                </a-form-item>
+                                <a-form-item label="学分">
+                                    <a-input-number v-model:value="courseForm.credit" :min="0" :max="20" :step="0.5" style="width: 100%"></a-input-number>
+                                </a-form-item>
+                            </a-form>
+                        </a-modal>
+                    </div>
+
+                    <div v-if="currentPage === 'scores'">
+                        <div style="margin-bottom: 16px;">
+                            <a-button type="primary" @click="openAddScore">录入成绩</a-button>
+                            <a-input-search v-model:value="searchScore" placeholder="搜索学号、姓名、课程、班级" style="width: 300px; margin-left: 16px;" allow-clear></a-input-search>
+                            <span style="margin-left: 16px; color: #888;">共 {{ filteredScores.length }} 条成绩记录</span>
+                        </div>
+                        <a-table :data-source="filteredScores" :columns="scoreColumns" row-key="id"></a-table>
+                        <a-modal v-model:open="scoreModalOpen" :title="scoreModalTitle" @ok="submitScore" ok-text="保存" cancel-text="取消">
+                            <a-form :model="scoreForm" layout="vertical">
+                                <a-form-item label="学生">
+                                    <a-select v-model:value="scoreForm.student_id" show-search option-filter-prop="children">
+                                        <a-select-option v-for="s in students" :key="s.id" :value="s.id">{{ s.student_no }} - {{ s.name }}</a-select-option>
+                                    </a-select>
+                                </a-form-item>
+                                <a-form-item label="课程">
+                                    <a-select v-model:value="scoreForm.course_id">
+                                        <a-select-option v-for="c in courses" :key="c.id" :value="c.id">{{ c.course_name }}</a-select-option>
+                                    </a-select>
+                                </a-form-item>
+                                <a-form-item label="分数">
+                                    <a-input-number v-model:value="scoreForm.score" :min="0" :max="100" :step="0.5" style="width: 100%"></a-input-number>
+                                </a-form-item>
+                                <a-form-item label="学期">
+                                    <a-input v-model:value="scoreForm.term" :maxlength="20"></a-input>
+                                </a-form-item>
+                            </a-form>
+                        </a-modal>
+                    </div>
+
+                    <div v-if="currentPage === 'statistics'">
+                        <a-row :gutter="16" style="margin-bottom: 24px;">
+                            <a-col :span="8"><a-card><a-statistic title="学生总数" :value="stats.total"></a-statistic></a-card></a-col>
+                            <a-col :span="8"><a-card><a-statistic title="专业数量" :value="stats.major_count"></a-statistic></a-card></a-col>
+                            <a-col :span="8"><a-card><a-statistic title="班级数量" :value="stats.class_count"></a-statistic></a-card></a-col>
+                        </a-row>
+                        <a-row :gutter="16">
+                            <a-col :span="12"><a-card title="各班级人数" style="margin-bottom: 16px;"><canvas id="chartClass" height="200"></canvas></a-card></a-col>
+                            <a-col :span="12"><a-card title="男女比例" style="margin-bottom: 16px;"><canvas id="chartGender" height="200"></canvas></a-card></a-col>
+                            <a-col :span="12"><a-card title="各专业人数"><canvas id="chartMajor" height="200"></canvas></a-card></a-col>
+                            <a-col :span="12"><a-card title="各年份入学人数"><canvas id="chartYear" height="200"></canvas></a-card></a-col>
+                        </a-row>
+                    </div>
+
+                </a-layout-content>
+            </a-layout>
+        </a-layout>
+    </div>
+    {% endraw %}
+
+    <script>
+        const { createApp } = Vue
+
+        createApp({
+            data() {
+                return {
+                    loggedIn: false, username: '',
+                    loginForm: { username: '', password: '' },
+                    collapsed: false, currentPage: 'students',
+                    students: [], majors: [], classes: [], courses: [], scores: [],
+                    columns: [], majorColumns: [], classColumns: [], courseColumns: [], scoreColumns: [],
+                    searchStudent: '', searchMajor: '', searchClass: '', searchCourse: '', searchScore: '',
+                    yearOptions: [2020, 2021, 2022, 2023, 2024, 2025, 2026],
+                    modalOpen: false, editingId: null,
+                    form: { student_no: '', name: '', gender: '男', class_name: '', major: '', enroll_year: 2024 },
+                    majorModalOpen: false, editingMajorId: null,
+                    majorForm: { major_name: '', department: '' },
+                    classModalOpen: false, editingClassId: null,
+                    classForm: { class_name: '', major_id: null, grade: '2024' },
+                    courseModalOpen: false, editingCourseId: null,
+                    courseForm: { course_name: '', credit: 3.0 },
+                    scoreModalOpen: false, editingScoreId: null,
+                    scoreForm: { student_id: null, course_id: null, score: 0, term: '2024-2025学年第一学期' },
+                    stats: { total: 0, major_count: 0, class_count: 0, by_class: [], by_major: [], by_gender: [], by_year: [] },
+                    chartInstances: {}
+                }
+            },
+            computed: {
+                pageTitle() {
+                    const t = { students: '学生列表', majors: '专业管理', classes: '班级管理', courses: '课程管理', scores: '成绩管理', statistics: '统计分析' }
+                    return t[this.currentPage]
+                },
+                modalTitle() { return this.editingId === null ? '添加学生' : '编辑学生' },
+                majorModalTitle() { return this.editingMajorId === null ? '添加专业' : '编辑专业' },
+                classModalTitle() { return this.editingClassId === null ? '添加班级' : '编辑班级' },
+                courseModalTitle() { return this.editingCourseId === null ? '添加课程' : '编辑课程' },
+                scoreModalTitle() { return this.editingScoreId === null ? '录入成绩' : '编辑成绩' },
+
+                filteredStudents() {
+                    const k = this.searchStudent.trim().toLowerCase()
+                    if (!k) return this.students
+                    return this.students.filter(s =>
+                        (s.name || '').toLowerCase().includes(k) ||
+                        (s.student_no || '').toLowerCase().includes(k) ||
+                        (s.class_name || '').toLowerCase().includes(k) ||
+                        (s.major || '').toLowerCase().includes(k)
+                    )
+                },
+                filteredMajors() {
+                    const k = this.searchMajor.trim().toLowerCase()
+                    if (!k) return this.majors
+                    return this.majors.filter(m =>
+                        (m.major_name || '').toLowerCase().includes(k) ||
+                        (m.department || '').toLowerCase().includes(k)
+                    )
+                },
+                filteredClasses() {
+                    const k = this.searchClass.trim().toLowerCase()
+                    if (!k) return this.classes
+                    return this.classes.filter(c =>
+                        (c.class_name || '').toLowerCase().includes(k) ||
+                        (c.major_name || '').toLowerCase().includes(k)
+                    )
+                },
+                filteredCourses() {
+                    const k = this.searchCourse.trim().toLowerCase()
+                    if (!k) return this.courses
+                    return this.courses.filter(c => (c.course_name || '').toLowerCase().includes(k))
+                },
+                filteredScores() {
+                    const k = this.searchScore.trim().toLowerCase()
+                    if (!k) return this.scores
+                    return this.scores.filter(s =>
+                        (s.student_name || '').toLowerCase().includes(k) ||
+                        (s.student_no || '').toLowerCase().includes(k) ||
+                        (s.course_name || '').toLowerCase().includes(k) ||
+                        (s.class_name || '').toLowerCase().includes(k)
+                    )
+                }
+            },
+            methods: {
+                doLogin() {
+                    if (!this.loginForm.username || !this.loginForm.username.trim()) {
+                        antd.message.error('请输入用户名'); return
+                    }
+                    if (!this.loginForm.password) {
+                        antd.message.error('请输入密码'); return
+                    }
+                    fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.loginForm) })
+                        .then(r => r.json()).then(data => {
+                            if (data.success) {
+                                this.loggedIn = true; this.username = this.loginForm.username
+                                this.loginForm.password = ''
+                                antd.message.success('登录成功'); this.loadAll()
+                            } else { antd.message.error(data.message) }
+                        })
+                },
+                doLogout() {
+                    fetch('/api/logout', { method: 'POST' }).then(() => {
+                        this.loggedIn = false; this.username = ''
+                        this.loginForm = { username: '', password: '' }
+                    })
+                },
+                checkLogin() {
+                    fetch('/api/check-login').then(r => r.json()).then(data => {
+                        if (data.logged_in) { this.loggedIn = true; this.username = data.username; this.loadAll() }
+                    })
+                },
+                handleResponse(r) {
+                    if (r.status === 401) {
+                        this.loggedIn = false
+                        this.username = ''
+                        antd.message.warning('登录已过期，请重新登录')
+                        return null
+                    }
+                    return r.json()
+                },
+                loadAll() { this.loadStudents(); this.loadMajors(); this.loadClasses(); this.loadCourses(); this.loadScores() },
+                handleMenuClick(e) {
+                    this.currentPage = e.key
+                    if (e.key === 'statistics') { this.loadStatistics() }
+                },
+
+                loadStudents() { fetch('/api/students').then(r => this.handleResponse(r)).then(d => { if (d) this.students = d }) },
+                loadMajors() { fetch('/api/majors').then(r => this.handleResponse(r)).then(d => { if (d) this.majors = d }) },
+                loadClasses() { fetch('/api/classes').then(r => this.handleResponse(r)).then(d => { if (d) this.classes = d }) },
+                loadCourses() { fetch('/api/courses').then(r => this.handleResponse(r)).then(d => { if (d) this.courses = d }) },
+                loadScores() { fetch('/api/scores').then(r => this.handleResponse(r)).then(d => { if (d) this.scores = d }) },
+
+                loadStatistics() {
+                    fetch('/api/statistics').then(r => this.handleResponse(r)).then(data => {
+                        if (!data) return
+                        this.stats = data
+                        this.$nextTick(() => { this.drawCharts() })
+                    })
+                },
+                drawCharts() {
+                    const colors = ['#1677ff', '#52c41a', '#faad14', '#f5222d', '#722ed1', '#13c2c2']
+                    const make = (id, type, labels, values, label) => {
+                        if (this.chartInstances[id]) { this.chartInstances[id].destroy() }
+                        const el = document.getElementById(id)
+                        if (!el) return
+                        this.chartInstances[id] = new Chart(el, {
+                            type: type,
+                            data: { labels: labels, datasets: [{ label: label, data: values, backgroundColor: colors }] },
+                            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: type === 'pie' } } }
+                        })
+                    }
+                    make('chartClass', 'bar', this.stats.by_class.map(x => x.class_name), this.stats.by_class.map(x => x.count), '人数')
+                    make('chartGender', 'pie', this.stats.by_gender.map(x => x.gender), this.stats.by_gender.map(x => x.count), '人数')
+                    make('chartMajor', 'bar', this.stats.by_major.map(x => x.major), this.stats.by_major.map(x => x.count), '人数')
+                    make('chartYear', 'bar', this.stats.by_year.map(x => x.enroll_year), this.stats.by_year.map(x => x.count), '人数')
+                },
+
+                openAddModal() {
+                    this.editingId = null
+                    this.form = { student_no: '', name: '', gender: '男', class_name: '', major: '', enroll_year: 2024 }
+                    this.modalOpen = true
+                },
+                editStudent(r) {
+                    this.editingId = r.id
+                    this.form = { student_no: r.student_no, name: r.name, gender: r.gender, class_name: r.class_name, major: r.major, enroll_year: r.enroll_year }
+                    this.modalOpen = true
+                },
+                submitForm() {
+                    const no = (this.form.student_no || '').trim()
+                    const nm = (this.form.name || '').trim()
+                    if (!no) { antd.message.error('学号不能为空'); return }
+                    if (!/^\d+$/.test(no)) { antd.message.error('学号只能包含数字'); return }
+                    if (!nm) { antd.message.error('姓名不能为空'); return }
+                    const url = this.editingId === null ? '/api/students' : '/api/students/' + this.editingId
+                    const method = this.editingId === null ? 'POST' : 'PUT'
+                    fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.form) })
+                        .then(r => this.handleResponse(r)).then(d => {
+                            if (!d) return
+                            if (d.success === false) { antd.message.error(d.message); return }
+                            antd.message.success('保存成功'); this.modalOpen = false; this.loadStudents()
+                        })
+                },
+                deleteStudent(r) {
+                    antd.Modal.confirm({
+                        title: '确认删除', content: '确定要删除学生「' + r.name + '」吗？',
+                        okText: '确定删除', okType: 'danger', cancelText: '取消',
+                        onOk: () => {
+                            fetch('/api/students/' + r.id, { method: 'DELETE' }).then(r => this.handleResponse(r)).then(d => {
+                                if (!d) return
+                                if (d.success) { antd.message.success('删除成功'); this.loadStudents() }
+                                else { antd.message.error(d.message) }
+                            })
+                        }
+                    })
+                },
+
+                openAddMajor() { this.editingMajorId = null; this.majorForm = { major_name: '', department: '' }; this.majorModalOpen = true },
+                editMajor(r) { this.editingMajorId = r.id; this.majorForm = { major_name: r.major_name, department: r.department }; this.majorModalOpen = true },
+                submitMajor() {
+                    if (!this.majorForm.major_name || !this.majorForm.major_name.trim()) { antd.message.error('专业名称不能为空'); return }
+                    const url = this.editingMajorId === null ? '/api/majors' : '/api/majors/' + this.editingMajorId
+                    const method = this.editingMajorId === null ? 'POST' : 'PUT'
+                    fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.majorForm) })
+                        .then(r => this.handleResponse(r)).then(d => {
+                            if (!d) return
+                            if (d.success === false) { antd.message.error(d.message); return }
+                            antd.message.success('保存成功'); this.majorModalOpen = false; this.loadMajors()
+                        })
+                },
+                deleteMajor(r) {
+                    antd.Modal.confirm({
+                        title: '确认删除', content: '确定要删除专业「' + r.major_name + '」吗？',
+                        okText: '确定删除', okType: 'danger', cancelText: '取消',
+                        onOk: () => {
+                            fetch('/api/majors/' + r.id, { method: 'DELETE' }).then(r => this.handleResponse(r)).then(d => {
+                                if (!d) return
+                                if (d.success) { antd.message.success('删除成功'); this.loadMajors() }
+                                else { antd.message.error(d.message) }
+                            })
+                        }
+                    })
+                },
+
+                openAddClass() { this.editingClassId = null; this.classForm = { class_name: '', major_id: null, grade: '2024' }; this.classModalOpen = true },
+                editClass(r) { this.editingClassId = r.id; this.classForm = { class_name: r.class_name, major_id: r.major_id, grade: r.grade }; this.classModalOpen = true },
+                submitClass() {
+                    if (!this.classForm.class_name || !this.classForm.class_name.trim()) { antd.message.error('班级名称不能为空'); return }
+                    const url = this.editingClassId === null ? '/api/classes' : '/api/classes/' + this.editingClassId
+                    const method = this.editingClassId === null ? 'POST' : 'PUT'
+                    fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.classForm) })
+                        .then(r => this.handleResponse(r)).then(d => {
+                            if (!d) return
+                            if (d.success === false) { antd.message.error(d.message); return }
+                            antd.message.success('保存成功'); this.classModalOpen = false; this.loadClasses()
+                        })
+                },
+                deleteClass(r) {
+                    antd.Modal.confirm({
+                        title: '确认删除', content: '确定要删除班级「' + r.class_name + '」吗？',
+                        okText: '确定删除', okType: 'danger', cancelText: '取消',
+                        onOk: () => {
+                            fetch('/api/classes/' + r.id, { method: 'DELETE' }).then(r => this.handleResponse(r)).then(d => {
+                                if (!d) return
+                                antd.message.success('删除成功'); this.loadClasses()
+                            })
+                        }
+                    })
+                },
+
+                openAddCourse() { this.editingCourseId = null; this.courseForm = { course_name: '', credit: 3.0 }; this.courseModalOpen = true },
+                editCourse(r) { this.editingCourseId = r.id; this.courseForm = { course_name: r.course_name, credit: parseFloat(r.credit) }; this.courseModalOpen = true },
+                submitCourse() {
+                    if (!this.courseForm.course_name || !this.courseForm.course_name.trim()) { antd.message.error('课程名称不能为空'); return }
+                    if (this.courseForm.credit === null || this.courseForm.credit < 0 || this.courseForm.credit > 20) {
+                        antd.message.error('学分必须在 0 到 20 之间'); return
+                    }
+                    const url = this.editingCourseId === null ? '/api/courses' : '/api/courses/' + this.editingCourseId
+                    const method = this.editingCourseId === null ? 'POST' : 'PUT'
+                    fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.courseForm) })
+                        .then(r => this.handleResponse(r)).then(d => {
+                            if (!d) return
+                            if (d.success === false) { antd.message.error(d.message); return }
+                            antd.message.success('保存成功'); this.courseModalOpen = false; this.loadCourses()
+                        })
+                },
+                deleteCourse(r) {
+                    antd.Modal.confirm({
+                        title: '确认删除', content: '确定要删除课程「' + r.course_name + '」吗？',
+                        okText: '确定删除', okType: 'danger', cancelText: '取消',
+                        onOk: () => {
+                            fetch('/api/courses/' + r.id, { method: 'DELETE' }).then(r => this.handleResponse(r)).then(d => {
+                                if (!d) return
+                                if (d.success) { antd.message.success('删除成功'); this.loadCourses() }
+                                else { antd.message.error(d.message) }
+                            })
+                        }
+                    })
+                },
+
+                openAddScore() {
+                    this.editingScoreId = null
+                    this.scoreForm = { student_id: null, course_id: null, score: 0, term: '2024-2025学年第一学期' }
+                    this.scoreModalOpen = true
+                },
+                editScore(r) {
+                    this.editingScoreId = r.id
+                    this.scoreForm = { student_id: r.student_id, course_id: r.course_id, score: parseFloat(r.score), term: r.term }
+                    this.scoreModalOpen = true
+                },
+                submitScore() {
+                    if (!this.scoreForm.student_id || !this.scoreForm.course_id) { antd.message.error('请选择学生和课程'); return }
+                    if (this.scoreForm.score === null || this.scoreForm.score < 0 || this.scoreForm.score > 100) {
+                        antd.message.error('分数必须在 0 到 100 之间'); return
+                    }
+                    const url = this.editingScoreId === null ? '/api/scores' : '/api/scores/' + this.editingScoreId
+                    const method = this.editingScoreId === null ? 'POST' : 'PUT'
+                    fetch(url, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(this.scoreForm) })
+                        .then(r => this.handleResponse(r)).then(d => {
+                            if (!d) return
+                            if (d.success === false) { antd.message.error(d.message); return }
+                            antd.message.success('保存成功'); this.scoreModalOpen = false; this.loadScores()
+                        })
+                },
+                deleteScore(r) {
+                    antd.Modal.confirm({
+                        title: '确认删除', content: '确定要删除「' + r.student_name + ' - ' + r.course_name + '」的成绩吗？',
+                        okText: '确定删除', okType: 'danger', cancelText: '取消',
+                        onOk: () => {
+                            fetch('/api/scores/' + r.id, { method: 'DELETE' }).then(r => this.handleResponse(r)).then(d => {
+                                if (!d) return
+                                antd.message.success('删除成功'); this.loadScores()
+                            })
+                        }
+                    })
+                }
+            },
+            created() {
+                const actionCol = (editFn, delFn) => ({
+                    title: '操作', key: 'action', width: 170,
+                    customRender: ({ record }) => Vue.h('div', [
+                        Vue.h(antd.Button, { size: 'small', style: 'margin-right: 8px', onClick: () => editFn(record) }, () => '编辑'),
+                        Vue.h(antd.Button, { size: 'small', danger: true, onClick: () => delFn(record) }, () => '删除')
+                    ])
+                })
+
+                this.columns = [
+                    { title: '学号', dataIndex: 'student_no', key: 'student_no', width: 120 },
+                    { title: '姓名', dataIndex: 'name', key: 'name', width: 100 },
+                    { title: '性别', dataIndex: 'gender', key: 'gender', width: 80 },
+                    { title: '班级', dataIndex: 'class_name', key: 'class_name', width: 140 },
+                    { title: '专业', dataIndex: 'major', key: 'major' },
+                    { title: '入学年份', dataIndex: 'enroll_year', key: 'enroll_year', width: 110 },
+                    actionCol(this.editStudent, this.deleteStudent)
+                ]
+
+                this.majorColumns = [
+                    { title: '专业名称', dataIndex: 'major_name', key: 'major_name' },
+                    { title: '所属院系', dataIndex: 'department', key: 'department' },
+                    actionCol(this.editMajor, this.deleteMajor)
+                ]
+
+                this.classColumns = [
+                    { title: '班级名称', dataIndex: 'class_name', key: 'class_name' },
+                    { title: '所属专业', dataIndex: 'major_name', key: 'major_name' },
+                    { title: '年级', dataIndex: 'grade', key: 'grade', width: 100 },
+                    actionCol(this.editClass, this.deleteClass)
+                ]
+
+                this.courseColumns = [
+                    { title: '课程名称', dataIndex: 'course_name', key: 'course_name' },
+                    { title: '学分', dataIndex: 'credit', key: 'credit', width: 120 },
+                    actionCol(this.editCourse, this.deleteCourse)
+                ]
+
+                this.scoreColumns = [
+                    { title: '学号', dataIndex: 'student_no', key: 'student_no', width: 120 },
+                    { title: '姓名', dataIndex: 'student_name', key: 'student_name', width: 100 },
+                    { title: '班级', dataIndex: 'class_name', key: 'class_name', width: 140 },
+                    { title: '课程', dataIndex: 'course_name', key: 'course_name', width: 140 },
+                    {
+                        title: '分数', dataIndex: 'score', key: 'score', width: 100,
+                        customRender: ({ record }) => {
+                            const s = parseFloat(record.score)
+                            const color = s >= 90 ? '#52c41a' : (s >= 60 ? '#1677ff' : '#f5222d')
+                            return Vue.h('span', { style: 'color: ' + color + '; font-weight: 500' }, s)
+                        }
+                    },
+                    { title: '学期', dataIndex: 'term', key: 'term' },
+                    actionCol(this.editScore, this.deleteScore)
+                ]
+            },
+            mounted() { this.checkLogin() }
+        }).use(antd).mount('#app')
+    </script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>添加学生</title>
+</head>
+<body>
+    <h1>添加学生</h1>
+
+    <form method="POST" action="/students/add">
+        <p>
+            学号：<input type="text" name="student_no" required>
+        </p>
+        <p>
+            姓名：<input type="text" name="name" required>
+        </p>
+        <p>
+            性别：
+            <select name="gender">
+                <option value="男">男</option>
+                <option value="女">女</option>
+            </select>
+        </p>
+        <p>
+            班级：<input type="text" name="class_name">
+        </p>
+        <p>
+            专业：<input type="text" name="major">
+        </p>
+        <p>
+            入学年份：<input type="number" name="enroll_year">
+        </p>
+        <p>
+            <button type="submit">提交</button>
+        </p>
+    </form>
+
+    <p><a href="/students">返回学生列表</a></p>
+</body>
+</html>
