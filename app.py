@@ -27,6 +27,7 @@ def login_required(f):
 def get_db():
     return pymysql.connect(
         host=os.environ.get('DB_HOST', 'localhost'),
+        port=int(os.environ.get('DB_PORT', 3306)),
         user=os.environ.get('DB_USER', 'root'),
         password=os.environ.get('DB_PASSWORD', ''),
         database=os.environ.get('DB_NAME', 'student_system'),
@@ -35,6 +36,11 @@ def get_db():
 
 
 # ==================== 页面路由 ====================
+
+@app.route('/')
+def home():
+    return redirect('/vue')
+
 
 @app.route('/vue')
 def vue_page():
@@ -531,4 +537,5 @@ def api_statistics():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)
