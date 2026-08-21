@@ -16,6 +16,24 @@ The interface is in Chinese, as it was built to a Chinese-language requirements 
 | Grade Management | Score entry and maintenance using three-table JOIN queries, color-coded by grade range |
 | Statistics | Summary cards plus distribution charts by class, major, gender, and enrollment year |
 
+## Screenshots
+
+**Login**
+
+![Login](screenshots/login.png)
+
+**Student list with search and pagination**
+
+![Student list](screenshots/students.png)
+
+**Grade management — three-table JOIN query with color-coded scores**
+
+![Grade management](screenshots/scores.png)
+
+**Statistics dashboard**
+
+![Statistics](screenshots/statistics.png)
+
 ## Tech Stack
 
 - **Backend:** Python 3 + Flask
@@ -52,19 +70,11 @@ mysql -u root -p student_system < schema.sql
 pip3 install -r requirements.txt
 ```
 
-**4. Configure the database connection**
+**4. Set environment variables**
 
-In `app.py`, update the `get_db()` function with your local MySQL password:
-
-```python
-def get_db():
-    return pymysql.connect(
-        host='localhost',
-        user='root',
-        password='your_mysql_password',   # ← change this
-        database='student_system',
-        charset='utf8mb4'
-    )
+```bash
+export DB_PASSWORD='your_mysql_password'
+export SECRET_KEY='a_long_random_string'
 ```
 
 **5. Run the server**
@@ -91,8 +101,10 @@ Default credentials: `admin` / `admin123`
 .
 ├── app.py                  Flask backend, all API routes
 ├── schema.sql              Database schema
+├── create_major_class.sql  Normalization migration script
 ├── requirements.txt        Python dependencies
 ├── README.md
+├── screenshots/
 └── templates/
     ├── vue_students.html   Main SPA interface
     ├── students.html       Earlier Jinja version (retained)
@@ -109,4 +121,39 @@ Six tables:
 | `major` | Academic programs |
 | `class` | Classes, foreign key to `major` |
 | `student` | Student records |
-| `course`
+| `course` | Courses |
+| `score` | Grades, foreign keys to `student` and `course` |
+
+**Relationships:** one major has many classes; students and courses form a many-to-many relationship resolved through the `score` junction table.
+
+## Design Notes
+
+**Normalization.** Majors and classes were initially stored as free-text fields on the student table. This caused a data integrity problem: `SELECT DISTINCT` returned two entries for the same major because one record contained a full-width space (U+3000) from Chinese IME input — invisible on screen, and not removable by `TRIM()`, which only handles ASCII whitespace. The fix was to extract these into their own tables and change the student form to dropdown selection, eliminating the class of problem at the input layer rather than cleaning it up afterward.
+
+**Validation at two layers.** All input is validated in both the frontend and the backend. Frontend validation is for user experience; backend validation is for correctness, since the frontend can be bypassed entirely by constructing requests directly.
+
+**Error handling around database constraints.** Constraints like `UNIQUE` on student numbers correctly reject bad data, but an uncaught `IntegrityError` produces a hung modal with no feedback. Every constraint has a corresponding error path that returns a readable message.
+
+## Security
+
+Implemented:
+
+- All SQL queries use parameterized statements
+- Passwords stored as salted hashes, never plaintext
+- All data endpoints protected by a `@login_required` decorator
+- Sessions expire after 30 minutes of inactivity
+- Database credentials and secret key read from environment variables
+- Input validation on both frontend and backend
+
+## Known Limitations
+
+- No HTTPS — login credentials are transmitted in plaintext, suitable only for local development
+- Single administrator role, no permission tiers
+- The `student` table still stores class and major as text rather than foreign keys
+- Search is performed client-side; large datasets would require server-side queries with pagination
+- The `/api/init-admin` endpoint should be removed after initialization
+- The default password is weak and intended only for local testing
+
+## Context
+
+Built over approximately two weeks with no prior web development experience. Development was AI-assisted; the accompanying project report documents where AI-generated code required correction — including missing CDN dependencies, duplicate route definitions, and SQL that was syntactically correct but failed against real data.
